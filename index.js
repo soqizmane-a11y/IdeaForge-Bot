@@ -38,7 +38,7 @@ bot.deleteWebHook()
   .then(() => console.log('✅ Webhook cleared. IdeaForge Bot active and listening...'))
   .catch(err => console.error('⚠️ Webhook delete error:', err.message));
 
-// 5. COMPLETE IDEA DATABASE FOR ALL CATEGORIES
+// 5. COMPLETE IDEA DATABASE
 const IDEAS = {
   business: [
     "🚀 AI-Powered Resume Tailor: A service that rewrites resumes for specific job descriptions.",
@@ -137,18 +137,25 @@ bot.onText(/\/start/i, async (msg) => {
       `🧠 Daily Inspiration\n\n` +
       `*Tap a category below to generate ideas instantly!*`;
 
-    bot.sendMessage(chatId, welcomeMsg, { parse_mode: 'Markdown', ...MAIN_MENU });
+    await bot.sendMessage(chatId, welcomeMsg, { parse_mode: 'Markdown', ...MAIN_MENU });
   } catch (err) {
     console.error('Error on /start:', err);
   }
 });
 
-// Inline Keyboard Button Click Handler
+// Callback Query Handler (Inline Button Click Handling)
 bot.on('callback_query', async (query) => {
   const chatId = query.message.chat.id;
   const data = query.data;
 
-  bot.answerCallbackQuery(query.id);
+  // Acknowledge the callback immediately to clear loading spinner in Telegram
+  try {
+    await bot.answerCallbackQuery(query.id);
+  } catch (e) {
+    console.error('Callback Answer Error:', e.message);
+  }
+
+  console.log(`[Button Pressed]: ${data} by Chat ${chatId}`);
 
   if (data.startsWith('idea_')) {
     const category = data.replace('idea_', '');
@@ -158,13 +165,13 @@ bot.on('callback_query', async (query) => {
       reply_markup: {
         inline_keyboard: [
           [{ text: '🔄 Generate Another', callback_data: `idea_${category}` }],
-          [{ text: '⭐ Save This Idea', callback_data: `save_${encodeURIComponent(idea.substring(0, 60))}` }],
+          [{ text: '⭐ Save This Idea', callback_data: `save_${encodeURIComponent(idea.substring(0, 50))}` }],
           [{ text: '⬅️ Back to Main Menu', callback_data: 'main_menu' }]
         ]
       }
     };
 
-    bot.sendMessage(chatId, `✨ *Generated Idea:*\n\n${idea}`, { parse_mode: 'Markdown', ...ideaKeyboard });
+    await bot.sendMessage(chatId, `✨ *Generated Idea:*\n\n${idea}`, { parse_mode: 'Markdown', ...ideaKeyboard });
   } 
   
   else if (data.startsWith('save_')) {
@@ -175,9 +182,9 @@ bot.on('callback_query', async (query) => {
         if (!user.savedIdeas.includes(ideaSnippet)) {
           user.savedIdeas.push(ideaSnippet);
           await user.save();
-          bot.sendMessage(chatId, '✅ *Idea saved to your bookmarks!*', { parse_mode: 'Markdown' });
+          await bot.sendMessage(chatId, '✅ *Idea saved to your bookmarks!*', { parse_mode: 'Markdown' });
         } else {
-          bot.sendMessage(chatId, '⭐ *You already saved this idea.*', { parse_mode: 'Markdown' });
+          await bot.sendMessage(chatId, '⭐ *You already saved this idea.*', { parse_mode: 'Markdown' });
         }
       }
     } catch (err) {
@@ -197,14 +204,14 @@ bot.on('callback_query', async (query) => {
         text += `${index + 1}. ${item}...\n\n`;
       });
 
-      bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
+      await bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
     } catch (err) {
       console.error('Fetch saved error:', err);
     }
   } 
 
   else if (data === 'main_menu') {
-    bot.sendMessage(chatId, 'Choose a category to generate fresh ideas:', MAIN_MENU);
+    await bot.sendMessage(chatId, 'Choose a category to generate fresh ideas:', MAIN_MENU);
   }
 });
 
