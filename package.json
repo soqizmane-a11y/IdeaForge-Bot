@@ -1,0 +1,17 @@
+{
+  "name": "ideaforge-bot",
+  "version": "1.0.0",
+  "description": "Telegram bot for generating creative ideas across business, apps, content, and side hustles.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "mongoose": "^8.2.0",
+    "node-telegram-bot-api": "^0.65.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
