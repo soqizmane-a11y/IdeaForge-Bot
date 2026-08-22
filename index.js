@@ -8,7 +8,7 @@ const mongoUri = process.env.MONGODB_URI;
 const adminId = process.env.ADMIN_ID;
 
 if (!token || !mongoUri) {
-  console.error('❌ FATAL ERROR: BOT_TOKEN or MONGODB_URI is missing in environment variables.');
+  console.error('❌ FATAL ERROR: BOT_TOKEN or MONGODB_URI is missing.');
   process.exit(1);
 }
 
@@ -34,12 +34,11 @@ mongoose.connect(mongoUri)
 // 4. TELEGRAM BOT INITIALIZATION
 const bot = new TelegramBot(token, { polling: true });
 
-// Prevent 409 Conflicts by clearing lingering webhooks
 bot.deleteWebHook()
   .then(() => console.log('✅ Webhook cleared. IdeaForge Bot active and listening...'))
   .catch(err => console.error('⚠️ Webhook delete error:', err.message));
 
-// 5. PRE-LOADED IDEA DATABASE
+// 5. COMPLETE IDEA DATABASE FOR ALL CATEGORIES
 const IDEAS = {
   business: [
     "🚀 AI-Powered Resume Tailor: A service that rewrites resumes for specific job descriptions.",
@@ -80,16 +79,21 @@ const IDEAS = {
     "💼 Curating and selling niche digital templates (Notion, Figma, Airtable).",
     "💼 Building custom Telegram bots for local business customer service.",
     "💼 Managing niche Pinterest accounts for affiliate marketing."
+  ],
+  daily: [
+    "🧠 Brainstorm Rule: Take 2 unrelated products (e.g., Coffee + Podcasts) and merge them into a single service.",
+    "🧠 Focus on Pain Points: Ask 3 business owners what task consumes most of their weekly time.",
+    "🧠 Micro-SaaS Focus: Find a popular browser extension with 10k+ users and build a mobile/Telegram version."
   ]
 };
 
-// Helper: Fetch random item from category
+// Helper: Get Random Idea from Any Category
 function getRandomIdea(category) {
   const list = IDEAS[category] || IDEAS.business;
   return list[Math.floor(Math.random() * list.length)];
 }
 
-// Helper: Navigation Keyboards
+// 6. MAIN MENU KEYBOARD
 const MAIN_MENU = {
   reply_markup: {
     inline_keyboard: [
@@ -102,7 +106,7 @@ const MAIN_MENU = {
   }
 };
 
-// 6. COMMAND HANDLERS
+// 7. COMMAND HANDLERS
 
 // /start Command
 bot.onText(/\/start/i, async (msg) => {
@@ -135,7 +139,7 @@ bot.onText(/\/start/i, async (msg) => {
 
     bot.sendMessage(chatId, welcomeMsg, { parse_mode: 'Markdown', ...MAIN_MENU });
   } catch (err) {
-    console.error('Error handling /start:', err);
+    console.error('Error on /start:', err);
   }
 });
 
@@ -148,7 +152,7 @@ bot.on('callback_query', async (query) => {
 
   if (data.startsWith('idea_')) {
     const category = data.replace('idea_', '');
-    const idea = category === 'daily' ? getRandomIdea('business') : getRandomIdea(category);
+    const idea = getRandomIdea(category);
 
     const ideaKeyboard = {
       reply_markup: {
@@ -229,7 +233,7 @@ bot.onText(/\/broadcast (.+)/i, async (msg, match) => {
   }
 });
 
-// Global Error Catching
+// Error handling
 bot.on('polling_error', (error) => {
   console.error(`⚠️ Polling error [${error.code}]: ${error.message}`);
 });
