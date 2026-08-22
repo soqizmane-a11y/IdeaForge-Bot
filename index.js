@@ -87,7 +87,10 @@ const IDEAS = {
   ]
 };
 
-// Helper: Get Random Idea from Any Category
+// Temporary in-memory cache for generated ideas per chat (keeps callback_data under 64 bytes)
+const userCurrentIdea = {};
+
+// Helper: Get Random Idea
 function getRandomIdea(category) {
   const list = IDEAS[category] || IDEAS.business;
   return list[Math.floor(Math.random() * list.length)];
@@ -97,10 +100,10 @@ function getRandomIdea(category) {
 const MAIN_MENU = {
   reply_markup: {
     inline_keyboard: [
-      [{ text: '💡 Business Ideas', callback_data: 'idea_business' }, { text: '📱 App & Bot Ideas', callback_data: 'idea_app_bot' }],
-      [{ text: '🎥 YouTube Ideas', callback_data: 'idea_youtube' }, { text: '📲 Telegram Channel Ideas', callback_data: 'idea_telegram_channel' }],
-      [{ text: '📈 Startup Ideas', callback_data: 'idea_startup' }, { text: '🎨 Creative Projects', callback_data: 'idea_creative' }],
-      [{ text: '💼 Side Hustles', callback_data: 'idea_side_hustle' }, { text: '🧠 Daily Inspiration', callback_data: 'idea_daily' }],
+      [{ text: '💡 Business Ideas', callback_data: 'cat_business' }, { text: '📱 App & Bot Ideas', callback_data: 'cat_app_bot' }],
+      [{ text: '🎥 YouTube Ideas', callback_data: 'cat_youtube' }, { text: '📲 Telegram Channel Ideas', callback_data: 'cat_telegram_channel' }],
+      [{ text: '📈 Startup Ideas', callback_data: 'cat_startup' }, { text: '🎨 Creative Projects', callback_data: 'cat_creative' }],
+      [{ text: '💼 Side Hustles', callback_data: 'cat_side_hustle' }, { text: '🧠 Daily Inspiration', callback_data: 'cat_daily' }],
       [{ text: '⭐ Saved Ideas', callback_data: 'view_saved' }]
     ]
   }
@@ -143,29 +146,27 @@ bot.onText(/\/start/i, async (msg) => {
   }
 });
 
-// Callback Query Handler (Inline Button Click Handling)
+// Inline Keyboard Button Click Handler
 bot.on('callback_query', async (query) => {
   const chatId = query.message.chat.id;
   const data = query.data;
 
-  // Acknowledge the callback immediately to clear loading spinner in Telegram
   try {
     await bot.answerCallbackQuery(query.id);
-  } catch (e) {
-    console.error('Callback Answer Error:', e.message);
-  }
+  } catch (e) {}
 
-  console.log(`[Button Pressed]: ${data} by Chat ${chatId}`);
-
-  if (data.startsWith('idea_')) {
-    const category = data.replace('idea_', '');
+  if (data.startsWith('cat_')) {
+    const category = data.replace('cat_', '');
     const idea = getRandomIdea(category);
+
+    // Save active idea in memory for short reference
+    userCurrentIdea[chatId] = idea;
 
     const ideaKeyboard = {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🔄 Generate Another', callback_data: `idea_${category}` }],
-          [{ text: '⭐ Save This Idea', callback_data: `save_${encodeURIComponent(idea.substring(0, 50))}` }],
+          [{ text: '🔄 Generate Another', callback_data: `cat_${category}` }],
+          [{ text: '⭐ Save This Idea', callback_data: 'save_current' }],
           [{ text: '⬅️ Back to Main Menu', callback_data: 'main_menu' }]
         ]
       }
@@ -174,13 +175,17 @@ bot.on('callback_query', async (query) => {
     await bot.sendMessage(chatId, `✨ *Generated Idea:*\n\n${idea}`, { parse_mode: 'Markdown', ...ideaKeyboard });
   } 
   
-  else if (data.startsWith('save_')) {
-    const ideaSnippet = decodeURIComponent(data.replace('save_', ''));
+  else if (data === 'save_current') {
+    const currentIdea = userCurrentIdea[chatId];
+    if (!currentIdea) {
+      return bot.sendMessage(chatId, '⚠️ No active idea found to save. Generate a new one first!');
+    }
+
     try {
       const user = await User.findOne({ telegramId: chatId.toString() });
       if (user) {
-        if (!user.savedIdeas.includes(ideaSnippet)) {
-          user.savedIdeas.push(ideaSnippet);
+        if (!user.savedIdeas.includes(currentIdea)) {
+          user.savedIdeas.push(currentIdea);
           await user.save();
           await bot.sendMessage(chatId, '✅ *Idea saved to your bookmarks!*', { parse_mode: 'Markdown' });
         } else {
@@ -201,7 +206,7 @@ bot.on('callback_query', async (query) => {
 
       let text = `⭐ *Your Saved Ideas:*\n\n`;
       user.savedIdeas.forEach((item, index) => {
-        text += `${index + 1}. ${item}...\n\n`;
+        text += `${index + 1}. ${item}\n\n`;
       });
 
       await bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
